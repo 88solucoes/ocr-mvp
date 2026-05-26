@@ -59,3 +59,5 @@ if __name__ == "__main__":
     # O Cloud Run exige que o container escute a porta definida pela variável de ambiente PORT
     porta = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=porta)
+
+# TESTE CI/CD 
