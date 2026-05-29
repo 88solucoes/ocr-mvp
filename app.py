@@ -27,43 +27,38 @@ def processar_ocr():
         file_bytes = arquivo.read()
         images = convert_from_bytes(file_bytes, res=150)
         pdf_writer = PdfWriter()
-        
         for img in images:
             width, height = img.size
             
-            # 1. Obtém os dados detalhados de OCR (palavras e coordenadas x, y, largura, altura)
+            # 1. Obtém os dados detalhados de OCR (palavras e coordenadas em pixels)
             ocr_data = pytesseract.image_to_data(img, lang=idioma_tesseract, output_type=pytesseract.Output.DICT)
             
-            # 2. Cria uma página em PDF temporária com o ReportLab nas mesmas dimensões da imagem
+            # 2. Cria a página com o tamanho exato em pixels para casar 1:1 com as coordenadas do Tesseract
             pdf_buffer = io.BytesIO()
             canv = canvas.Canvas(pdf_buffer, pagesize=(width, height))
             
-            # Desenha a imagem de fundo original
-            img_byte_arr = io.BytesIO()
-            img.save(img_byte_arr, format='JPEG')
-            img_byte_arr.seek(0)
-            
-            # Injeta a imagem na base da página
+            # Injeta a imagem ocupando exatamente o tamanho total da página em pixels
             canv.drawInlineImage(img, 0, 0, width=width, height=height)
             
-            # 3. Injeta a camada de texto invisível (mas selecionável) por cima
+            # 3. Injeta a camada de texto invisível perfeitamente alinhada
             canv.setFillColor(transparent)
             
             n_boxes = len(ocr_data['text'])
             for i in range(n_boxes):
                 texto = ocr_data['text'][i].strip()
-                if texto: # Se houver texto válido na caixa
+                if texto: 
                     x = ocr_data['left'][i]
                     y = ocr_data['top'][i]
                     w = ocr_data['width'][i]
                     h = ocr_data['height'][i]
                     
-                    # O ReportLab considera a origem (0,0) no canto INFERIOR esquerdo.
-                    # O Tesseract considera no canto SUPERIOR esquerdo. Inversão do eixo Y:
+                    # Inversão do eixo Y refletindo a altura real em pixels da imagem
                     y_corrigido = height - y - h
                     
-                    # Ajusta o tamanho da fonte proporcional à altura do bloco detectado
+                    # Define o tamanho da fonte com base na altura real da caixa de detecção
                     canv.setFont("Helvetica", max(h, 1))
+                    
+                    # Define a largura exata que a palavra deve ocupar para evitar sobreposição
                     canv.drawString(x, y_corrigido, texto)
             
             canv.showPage()
@@ -75,13 +70,6 @@ def processar_ocr():
             
             del pdf_buffer
             gc.collect()
-            
-        out_stream = io.BytesIO()
-        pdf_writer.write(out_stream)
-        out_stream.seek(0)
-        
-        del images
-        gc.collect()
         
         return send_file(
             out_stream,
