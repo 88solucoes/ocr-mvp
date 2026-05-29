@@ -18,83 +18,34 @@ pytesseract.pytesseract.tesseract_cmd = r'/usr/bin/tesseract'
 @app.route("/api/conversor-ocr", methods=["POST"])
 def processar_ocr():
     try:
-        if "file" not in request.files:
-            return jsonify({"error": "Nenhum arquivo enviado no formulário."}), 400
-            
-        arquivo = request.files["file"]
-        idioma_web = request.form.get("idioma", "pt")
-        idioma_tesseract = "por" if idioma_web == "pt" else "eng"
+        # Substitui o 'uploaded_files' do Streamlit pelo payload do formulário HTTP
+        file = request.files['file']
+        idioma = request.form.get('idioma', 'por')
         
-        # 1. Leitura do binário e isolamento das páginas em imagens
-        file_bytes = arquivo.read()
-        images = convert_from_bytes(file_bytes, res=150)
-        
-        # Cria leitores para aplicar o merge página por página com o original
-        pdf_original = PdfReader(io.BytesIO(file_bytes))
+        # Sua lógica exata de processamento de bytes e RAM:
+        file_bytes = file.read()
+        images = convert_from_bytes(file_bytes, 150)
         pdf_writer = PdfWriter()
         
-        # 2. Varredura e criação da máscara de texto superior
-        for i, img in enumerate(images):
-            width, height = img.size
-            
-            # Obtém os dados detalhados de OCR do Tesseract (coordenadas em pixels)
-            ocr_data = pytesseract.image_to_data(img, lang=idioma_tesseract, output_type=pytesseract.Output.DICT)
-            
-            # Cria um PDF temporário na memória contendo o texto
-            text_pdf_buffer = io.BytesIO()
-            canv = canvas.Canvas(text_pdf_buffer, pagesize=(width, height))
-            
-            # --- MUDANÇA CRÍTICA AQUI ---
-            # Em vez de tornar o texto invisível por comando de renderização (que o Firefox bloqueia),
-            # definimos a cor do texto com opacidade zero (RGBA com Alfa = 0)
-            from reportlab.lib.colors import Color
-            cor_transparente = Color(0, 0, 0, alpha=0)
-            canv.setFillColor(cor_transparente)
-            
-            n_boxes = len(ocr_data['text'])
-            for j in range(n_boxes):
-                texto = ocr_data['text'][j].strip()
-                if texto: 
-                    x = ocr_data['left'][j]
-                    y = ocr_data['top'][j]
-                    w = ocr_data['width'][j]
-                    h = ocr_data['height'][j]
-                    
-                    # Correção matemática do eixo Y (Inversão Superior -> Inferior)
-                    y_corrigido = height - y - h
-                    
-                    # Desenha o caractere transparente no tamanho real detectado
-                    canv.setFont("Helvetica", max(h, 1))
-                    canv.drawString(x, y_corrigido, texto)
-            
-            canv.showPage()
-            canv.save()
-            text_pdf_buffer.seek(0)
-            
-            # 3. Engenharia de Fusão (Merge): Joga o texto exatamente por CIMA da imagem original
-            page_original = pdf_original.pages[i]
-            page_texto = PdfReader(text_pdf_buffer).pages[0]
-            
-            # Modifica a página original aplicando a camada de texto por cima dela
-            page_original.merge_page(page_texto)
-            pdf_writer.add_page(page_original)
-            
-            del text_pdf_buffer
-            gc.collect()
-            
-        # 4. Compilação final do Buffer Volátil de Saída
+        for img in images:
+            page_pdf_bytes = pytesseract.image_to_pdf_or_hocr(img, lang=idioma, extension='pdf')
+            pdf_writer.add_page(PdfReader(io.BytesIO(page_pdf_bytes)).pages[0])
+            del page_pdf_bytes
+        
         out_stream = io.BytesIO()
         pdf_writer.write(out_stream)
         out_stream.seek(0)
         
+        # Gestão de Memória idêntica à sua estrutura anterior
         del images
-        gc.collect()
+        gc.collect() 
         
+        # Em vez de salvar no st.session_state, cospe o arquivo direto para o usuário baixar
         return send_file(
-            out_stream,
-            mimetype="application/pdf",
-            as_attachment=True,
-            download_name=f"OCR_{arquivo.filename}"
+            out_stream, 
+            mimetype="application/pdf", 
+            as_attachment=True, 
+            download_name=f"OCR_{file.filename}"
         )
         
     except Exception as e:
