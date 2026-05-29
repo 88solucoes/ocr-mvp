@@ -3,4 +3,5 @@ Flask-CORS==4.0.0
 pytesseract==0.3.10
 pdf2image==1.17.0
 pypdf==4.2.0
+reportlab==4.1.0
 gunicorn==22.0.0
