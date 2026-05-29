@@ -40,13 +40,16 @@ def processar_ocr():
             # Obtém os dados detalhados de OCR do Tesseract (coordenadas em pixels)
             ocr_data = pytesseract.image_to_data(img, lang=idioma_tesseract, output_type=pytesseract.Output.DICT)
             
-            # Cria um PDF temporário na memória contendo APENAS o texto
+            # Cria um PDF temporário na memória contendo o texto
             text_pdf_buffer = io.BytesIO()
             canv = canvas.Canvas(text_pdf_buffer, pagesize=(width, height))
             
-            # Tornamos o texto invisível usando o modo de renderização de texto do PDF (3 = Invisível)
-            # Isso é mais seguro e compatível do que usar cores transparentes estruturais
-            canv._code.append("3 Tr") 
+            # --- MUDANÇA CRÍTICA AQUI ---
+            # Em vez de tornar o texto invisível por comando de renderização (que o Firefox bloqueia),
+            # definimos a cor do texto com opacidade zero (RGBA com Alfa = 0)
+            from reportlab.lib.colors import Color
+            cor_transparente = Color(0, 0, 0, alpha=0)
+            canv.setFillColor(cor_transparente)
             
             n_boxes = len(ocr_data['text'])
             for j in range(n_boxes):
@@ -60,7 +63,7 @@ def processar_ocr():
                     # Correção matemática do eixo Y (Inversão Superior -> Inferior)
                     y_corrigido = height - y - h
                     
-                    # Desenha o caractere invisível no tamanho real detectado
+                    # Desenha o caractere transparente no tamanho real detectado
                     canv.setFont("Helvetica", max(h, 1))
                     canv.drawString(x, y_corrigido, texto)
             
