@@ -1,11 +1,10 @@
 FROM python:3.11-slim
 
-# Dependências do sistema operacional necessárias para o OCR e imagens
+# Instala as ferramentas nativas de OCR e manipulação de PDF do Linux
 RUN apt-get update && apt-get install -y \
-    tesseract-ocr \
+    ocrmypdf \
     tesseract-ocr-por \
     tesseract-ocr-eng \
-    poppler-utils \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -15,4 +14,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 app:app
+CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 300 app:app
