@@ -1,10 +1,11 @@
 FROM python:3.11-slim
 
-# Instala as ferramentas nativas de OCR e manipulação de PDF do Linux
+# Instala as dependências exatas que seu motor original do Streamlit utilizava no Linux
 RUN apt-get update && apt-get install -y \
-    ocrmypdf \
+    tesseract-ocr \
     tesseract-ocr-por \
     tesseract-ocr-eng \
+    poppler-utils \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
