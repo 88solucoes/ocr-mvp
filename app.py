@@ -6,8 +6,13 @@ from flask import Flask, request, send_file, jsonify
 from flask_cors import CORS
 
 app = Flask(__name__)
-# Libera o CORS para o domínio do seu portal do Power Pages
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+# Configuração robusta e explícita de CORS para aceitar origens externas e cabeçalhos de formulário
+CORS(app, resources={r"/api/*": {
+    "origins": "*",
+    "methods": ["POST", "OPTIONS"],
+    "allow_headers": ["Content-Type", "Authorization"]
+}})
 
 @app.route("/api/conversor-ocr", methods=["POST"])
 def processar_ocr():
